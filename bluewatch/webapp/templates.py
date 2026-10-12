@@ -4295,6 +4295,8 @@ SETTINGS_TEMPLATE = """
                         const label = document.createElement('dt');
                         label.textContent = key.replaceAll('_', ' ');
                         const detail = document.createElement('dd');
+                        if (key === 'sources') label.textContent = 'Sources (active 60s)';
+                        if (key === 'source_count') label.textContent = 'Source Count (active 60s)';
                         detail.textContent = key === 'last_batch' && value ? new Date(value).toLocaleString() : Array.isArray(value) ? value.join(', ') : String(value ?? 'Never');
                         target.append(label, detail);
                     });

@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+import time
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -20,6 +21,7 @@ MAX_BATCH = 100
 MAX_METADATA_ENTRIES = 32
 MAX_OBSERVATION_AGE = 120
 MAX_FUTURE_SECONDS = 10
+SOURCE_ACTIVE_WINDOW = 60
 MAC = re.compile(r"(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\Z")
 logger = logging.getLogger(__name__)
 
@@ -137,9 +139,18 @@ class ExternalBleIngestion:
             "rejected": 0,
             "deduplicated": 0,
             "last_batch": None,
-            "sources": [],
-            "source_count": 0,
         }
+        self.source_last_seen = {}
+
+    def _active_sources(self) -> list[str]:
+        """Return sources that supplied a valid observation recently."""
+        cutoff = time.monotonic() - SOURCE_ACTIVE_WINDOW
+        self.source_last_seen = {
+            source: seen_at
+            for source, seen_at in self.source_last_seen.items()
+            if seen_at >= cutoff
+        }
+        return sorted(self.source_last_seen)
 
     def _authenticate(self, request: web.Request) -> None:
         if not self.token:
@@ -169,9 +180,12 @@ class ExternalBleIngestion:
         """Return receiver status to an authenticated dashboard session."""
         del request
         enabled = bool(self.token) and await db.get_external_ble_ingest_enabled()
+        sources = self._active_sources()
         return web.json_response(
             {
                 **self.stats,
+                "sources": sources,
+                "source_count": len(sources),
                 "enabled": enabled,
                 "authentication": "configured" if self.token else "disabled",
             }
@@ -244,7 +258,6 @@ class ExternalBleIngestion:
                 raise web.HTTPBadRequest(text="Invalid batch") from None
 
             counts = {"accepted": 0, "rejected": 0, "deduplicated": 0}
-            sources = set()
             from .webapp.server import _device_to_json
 
             for item in observations:
@@ -260,11 +273,11 @@ class ExternalBleIngestion:
                     )
                     continue
                 device, is_new = await db.upsert_device(**normalized)
+                self.source_last_seen[normalized["ingest_source"]] = time.monotonic()
                 if device is None:
                     counts["deduplicated"] += 1
                     continue
                 counts["accepted"] += 1
-                sources.add(normalized["ingest_source"])
                 try:
                     await self.server.broadcast_sighting(_device_to_json(device))
                     if self.server._notifications:
@@ -276,7 +289,5 @@ class ExternalBleIngestion:
                 self.stats[key] += value
             self.stats.update(
                 last_batch=datetime.now(UTC).isoformat(),
-                sources=sorted(sources),
-                source_count=len(sources),
             )
             return web.json_response(counts)

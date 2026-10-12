@@ -8,7 +8,11 @@ import pytest
 from aiohttp import web
 
 from bluewatch import db
-from bluewatch.ingest import ExternalBleIngestion, normalize_observation
+from bluewatch.ingest import (
+    SOURCE_ACTIVE_WINDOW,
+    ExternalBleIngestion,
+    normalize_observation,
+)
 
 
 def observation():
@@ -158,3 +162,30 @@ async def test_legacy_route_remains_compatible(aiohttp_client, monkeypatch, tmp_
     )
     assert response.status == 200
     assert (await response.json())["accepted"] == 1
+
+
+@pytest.mark.asyncio
+async def test_status_reports_sources_active_within_rolling_window(
+    aiohttp_client, monkeypatch, tmp_path
+):
+    monkeypatch.setattr(db, "DB_PATH", tmp_path / "source-status.db")
+    await db.init_db()
+    monkeypatch.setenv("BLUEWATCH_INGEST_TOKEN", "c" * 48)
+    now = 10_000.0
+    monkeypatch.setattr("bluewatch.ingest.time.monotonic", lambda: now)
+    receiver = ExternalBleIngestion(AsyncMock())
+    receiver.source_last_seen = {
+        "proxy-current": now,
+        "proxy-recent": now - SOURCE_ACTIVE_WINDOW,
+        "proxy-stale": now - SOURCE_ACTIVE_WINDOW - 0.001,
+    }
+    app = web.Application()
+    app.router.add_get("/api/external-ble/status", receiver.status)
+    client = await aiohttp_client(app)
+
+    status = await client.get("/api/external-ble/status")
+    payload = await status.json()
+
+    assert payload["sources"] == ["proxy-current", "proxy-recent"]
+    assert payload["source_count"] == 2
+    assert "proxy-stale" not in receiver.source_last_seen
