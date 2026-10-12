@@ -340,13 +340,21 @@ class WebServer:
         if not self._sse_clients:
             return
         payload = f"data: {json.dumps(device_json)}\n\n".encode("utf-8")
-        dead = set()
-        for resp in self._sse_clients:
+
+        async def _write(resp: web.StreamResponse):
             try:
-                await resp.write(payload)
-            except (ConnectionResetError, RuntimeError):
-                dead.add(resp)
-        self._sse_clients -= dead
+                async with asyncio.timeout(0.5):
+                    await resp.write(payload)
+            except (ConnectionResetError, ConnectionError, RuntimeError, TimeoutError):
+                return resp
+            return None
+
+        # A client can disconnect while writes are in flight. Work from a
+        # snapshot and write concurrently so one slow dashboard cannot stall
+        # scan or external-ingest processing for every other client.
+        clients = tuple(self._sse_clients)
+        results = await asyncio.gather(*(_write(resp) for resp in clients))
+        self._sse_clients.difference_update(resp for resp in results if resp)
 
     async def api_devices(self, request: web.Request) -> web.Response:
         """Get paginated devices and dashboard stats."""
