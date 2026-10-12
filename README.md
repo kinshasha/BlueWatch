@@ -516,6 +516,20 @@ docker compose restart
 - Verify Bluetooth service is running: `systemctl status bluetooth`
 - Confirm your adapter is visible: `bluetoothctl list`
 
+### Live dashboard or external BLE ingestion stops advancing
+
+If scans or external BLE batches stop advancing while a dashboard is open,
+check the BlueWatch log for repeated `429` responses followed by `stale or
+future observation` rejections. Older builds could wait indefinitely while
+writing live-sighting events to a disconnected or back-pressured dashboard SSE
+client. When external ingestion was enabled, this also held its ingestion lock
+and caused producer retries to expire.
+
+Live-sighting delivery now writes to a snapshot of connected SSE clients,
+sends to them concurrently, and drops a client if its write does not complete
+within 500 ms. A healthy external feed should show regular `200` responses, a
+moving **Last Batch** value, and every active scanner MAC under **Sources**.
+
 ## Contributing
 
 Contributions welcome! Please open an issue or PR on GitHub.
