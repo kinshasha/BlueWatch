@@ -18,6 +18,7 @@ services:
     #   - PUID=1000            # Match your host user: id -u
     #   - PGID=1000            # Match your host group: id -g
     #   - TZ=Europe/London     # Set container timezone
+    #   - BLUEWATCH_LEGACY_TIMEZONE=Europe/London  # Timezone of pre-UTC timestamps already in the database
     #   - BLUEWATCH_ADAPTER=hci0
     #   - BLUEWATCH_CLASSIC_ADAPTER=hci1
     #   - BLUEWATCH_HEARTBEAT_URL=https://hc-ping.com/your-uuid  # Heartbeat check-in URL

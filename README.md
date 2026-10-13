@@ -192,6 +192,7 @@ The web dashboard will be available at **http://localhost:8080**
 | `PUID` | `1000` | UID for the container user, set to match your host user (`id -u`) when using bind mounts |
 | `PGID` | `1000` | GID for the container user, set to match your host group (`id -g`) when using bind mounts |
 | `TZ` | UTC | Container timezone (e.g., `Europe/London`) |
+| `BLUEWATCH_LEGACY_TIMEZONE` | `TZ` (or UTC) | IANA timezone used to interpret timestamps written by older releases without an offset; set this to the timezone used by the existing database during/after deployment |
 | `BLUEWATCH_ADAPTER` | auto | Bluetooth adapter for BLE scanning (e.g., `hci0`) |
 | `BLUEWATCH_CLASSIC_ADAPTER` | same as `BLUEWATCH_ADAPTER` | Separate adapter for classic Bluetooth scanning (e.g., `hci1`). When set to a different adapter, BLE and classic scans run concurrently. |
 | `BLUEWATCH_DATA_DIR` | `/data` | Database storage directory |

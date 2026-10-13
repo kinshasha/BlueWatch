@@ -19,6 +19,7 @@ from aiohttp import web
 from .. import archive, db, rpa
 from ..classifier import classify_device, get_type_icon, get_type_label, get_all_types, is_randomized_mac, is_macos_uuid, is_mdns_key, get_uuid_names, surveillance_evidence
 from ..patterns import generate_hourly_heatmap, generate_daily_heatmap
+from ..timeutil import serialize_timestamp, serialize_utc_timestamp
 from .radar_template import RADAR_TEMPLATE
 from .rf_template import RF_TEMPLATE
 from .templates import ABOUT_TEMPLATE, HTML_TEMPLATE, LIVE_TEMPLATE, LOGIN_TEMPLATE, SETTINGS_TEMPLATE
@@ -79,8 +80,8 @@ def _device_to_json(d, group=None) -> dict:
         "ignored": d.ignored,
         "watched": d.watched,
         "randomized_mac": is_randomized_mac(d.mac),
-        "first_seen": (d.first_seen.isoformat()) if d.first_seen else None,
-        "last_seen": (d.last_seen.isoformat()) if d.last_seen else None,
+        "first_seen": serialize_timestamp(d.first_seen),
+        "last_seen": serialize_timestamp(d.last_seen),
         "total_sightings": d.total_sightings,
         "last_rssi": d.last_rssi,
         "service_uuids": d.service_uuids,
@@ -89,15 +90,15 @@ def _device_to_json(d, group=None) -> dict:
         "group_name": group.name if group else None,
         "group_color": group.color if group else None,
         "notify_arrive": d.notify_arrive,
-        "notify_arrive_expires_at": (d.notify_arrive_expires_at.isoformat()) if d.notify_arrive_expires_at else None,
+        "notify_arrive_expires_at": serialize_timestamp(d.notify_arrive_expires_at),
         "notify_depart": d.notify_depart,
-        "notify_depart_expires_at": (d.notify_depart_expires_at.isoformat()) if d.notify_depart_expires_at else None,
+        "notify_depart_expires_at": serialize_timestamp(d.notify_depart_expires_at),
         "identity_id": d.identity_id,
         "identity_link_method": d.identity_link_method,
         "identity_mac_count": d.identity_mac_count,
         "identity_total_sightings": d.identity_total_sightings,
-        "identity_first_seen": (d.identity_first_seen.isoformat()) if d.identity_first_seen else None,
-        "name_conflict_at": (d.name_conflict_at.isoformat()) if d.name_conflict_at else None,
+        "identity_first_seen": serialize_timestamp(d.identity_first_seen),
+        "name_conflict_at": serialize_timestamp(d.name_conflict_at),
         "name_conflict_name": d.name_conflict_name,
     }
 
@@ -620,8 +621,8 @@ class WebServer:
                     d.device_class if d.device_class is not None else "",
                     "Yes" if d.watched else "No",
                     "Yes" if d.ignored else "No",
-                    (d.first_seen.isoformat()) if d.first_seen else "",
-                    (d.last_seen.isoformat()) if d.last_seen else "",
+                    serialize_timestamp(d.first_seen) or "",
+                    serialize_timestamp(d.last_seen) or "",
                     d.total_sightings if d.total_sightings is not None else "",
                     group.name if group else "",
                     uuids,
@@ -636,7 +637,7 @@ class WebServer:
                 for s in device_sightings:
                     rssi = s.get("rssi")
                     writer.writerow(base + [
-                        s.get("timestamp") or "",
+                        serialize_timestamp(s.get("timestamp")) or "",
                         rssi if rssi is not None else "",
                         db.rssi_to_proximity_zone(rssi),
                     ])
@@ -676,8 +677,8 @@ class WebServer:
                     "device_class": d.device_class,
                     "watched": bool(d.watched),
                     "ignored": bool(d.ignored),
-                    "first_seen": (d.first_seen.isoformat()) if d.first_seen else None,
-                    "last_seen": (d.last_seen.isoformat()) if d.last_seen else None,
+                    "first_seen": serialize_timestamp(d.first_seen),
+                    "last_seen": serialize_timestamp(d.last_seen),
                     "total_sightings": d.total_sightings,
                     "group": group.name if group else None,
                     "service_uuids": d.service_uuids or [],
@@ -685,7 +686,7 @@ class WebServer:
                     "notes": d.notes or None,
                     "sightings": [
                         {
-                            "timestamp": s.get("timestamp"),
+                            "timestamp": serialize_timestamp(s.get("timestamp")),
                             "rssi": s.get("rssi"),
                             "proximity_zone": db.rssi_to_proximity_zone(s.get("rssi")),
                         }
@@ -731,29 +732,29 @@ class WebServer:
                 "device_type": device_type,
                 "ignored": device.ignored,
                 "watched": device.watched,
-                "first_seen": (device.first_seen.isoformat()) if device.first_seen else None,
-                "last_seen": (device.last_seen.isoformat()) if device.last_seen else None,
+                "first_seen": serialize_timestamp(device.first_seen),
+                "last_seen": serialize_timestamp(device.last_seen),
                 "total_sightings": device.total_sightings,
                 "service_uuids": device.service_uuids,
                 "notes": device.notes,
                 "group_id": device.group_id,
                 "identity_mac_count": device.identity_mac_count,
-                "identity_first_seen": (device.identity_first_seen.isoformat()) if device.identity_first_seen else None,
+                "identity_first_seen": serialize_timestamp(device.identity_first_seen),
                 "identity_link_method": device.identity_link_method,
-                "name_conflict_at": (device.name_conflict_at.isoformat()) if device.name_conflict_at else None,
+                "name_conflict_at": serialize_timestamp(device.name_conflict_at),
                 "name_conflict_name": device.name_conflict_name,
                 "apple_activity": device.apple_activity,
-                "apple_activity_at": (device.apple_activity_at.isoformat()) if device.apple_activity_at else None,
+                "apple_activity_at": serialize_timestamp(device.apple_activity_at),
                 "samsung_status": device.samsung_status,
-                "samsung_status_at": (device.samsung_status_at.isoformat()) if device.samsung_status_at else None,
+                "samsung_status_at": serialize_timestamp(device.samsung_status_at),
                 "fastpair_battery": device.fastpair_battery,
-                "fastpair_battery_at": (device.fastpair_battery_at.isoformat()) if device.fastpair_battery_at else None,
+                "fastpair_battery_at": serialize_timestamp(device.fastpair_battery_at),
                 "drone_state": device.drone_state,
-                "drone_state_at": (device.drone_state_at.isoformat()) if device.drone_state_at else None,
+                "drone_state_at": serialize_timestamp(device.drone_state_at),
                 "rf_state": device.rf_state,
-                "rf_state_at": (device.rf_state_at.isoformat()) if device.rf_state_at else None,
+                "rf_state_at": serialize_timestamp(device.rf_state_at),
                 "dult_state": device.dult_state,
-                "dult_state_at": (device.dult_state_at.isoformat()) if device.dult_state_at else None,
+                "dult_state_at": serialize_timestamp(device.dult_state_at),
                 "surveillance": surveillance_evidence(device.mac, device.friendly_name, device.manufacturer_data, device.service_uuids, device.service_data),
             },
             "type_label": get_type_label(device_type),
@@ -871,8 +872,8 @@ class WebServer:
                 {
                     "mac": m.mac,
                     "vendor": m.vendor,
-                    "first_seen": (m.first_seen.isoformat()) if m.first_seen else None,
-                    "last_seen": (m.last_seen.isoformat()) if m.last_seen else None,
+                    "first_seen": serialize_timestamp(m.first_seen),
+                    "last_seen": serialize_timestamp(m.last_seen),
                     "total_sightings": m.total_sightings,
                 }
                 for m in members
@@ -1144,6 +1145,8 @@ class WebServer:
         days = int(request.query.get("days", "7"))
 
         rssi_history = await db.get_rssi_history(mac, days)
+        for sample in rssi_history:
+            sample["timestamp"] = serialize_timestamp(sample.get("timestamp"))
         return web.json_response({"mac": mac, "rssi_history": rssi_history})
 
     async def api_device_live_signal(self, request: web.Request) -> web.Response:
@@ -1209,7 +1212,10 @@ class WebServer:
         return web.json_response({
             "mac": mac,
             "minutes": minutes,
-            "sightings": sightings,
+            "sightings": [
+                {**s, "timestamp": serialize_timestamp(s.get("timestamp"))}
+                for s in sightings
+            ],
             "presence_pct": presence_pct,
             "current_rssi": current_rssi,
             "last_seen_seconds_ago": last_seen_seconds_ago,
@@ -1242,8 +1248,8 @@ class WebServer:
                 "type_icon": get_type_icon(device_type),
                 "type_label": get_type_label(device_type),
                 "watched": bool(a["watched"]),
-                "first_seen": a["first_seen"],
-                "last_seen": a["last_seen"],
+                "first_seen": serialize_timestamp(a["first_seen"]),
+                "last_seen": serialize_timestamp(a["last_seen"]),
                 "present": present,
                 "alert_id": a["id"],
                 "reason": "watched" if a["reason"] == "watched" else "type_alert",
@@ -1268,6 +1274,9 @@ class WebServer:
         gap_minutes = int(request.query.get("gap", "15"))
 
         dwell_data = await db.get_dwell_time(mac, days, gap_minutes)
+        for session in dwell_data.get("sessions", []):
+            session["start"] = serialize_timestamp(session.get("start"))
+            session["end"] = serialize_timestamp(session.get("end"))
         return web.json_response({"mac": mac, **dwell_data})
 
     async def api_device_correlation(self, request: web.Request) -> web.Response:
@@ -1291,6 +1300,9 @@ class WebServer:
         tolerance = int(request.query.get("tolerance", "6"))
 
         rotation = await db.get_rotation_candidates(mac, days, rssi_tolerance=tolerance)
+        for candidate in rotation.get("candidates", []):
+            candidate["first_seen"] = serialize_timestamp(candidate.get("first_seen"))
+            candidate["last_seen"] = serialize_timestamp(candidate.get("last_seen"))
         return web.json_response({"mac": mac, **rotation})
 
     async def api_device_proximity(self, request: web.Request) -> web.Response:
@@ -1418,6 +1430,8 @@ class WebServer:
             g["device_type"] = device_type
             g["type_icon"] = get_type_icon(device_type)
             g["type_label"] = get_type_label(device_type)
+            g["first_seen"] = serialize_timestamp(g.get("first_seen"))
+            g["last_seen"] = serialize_timestamp(g.get("last_seen"))
         return web.json_response({"groups": groups, "total": len(groups)})
 
     async def api_search(self, request: web.Request) -> web.Response:
@@ -1450,8 +1464,8 @@ class WebServer:
                 "type_icon": get_type_icon(device_type),
                 "type_label": get_type_label(device_type),
                 "ignored": r.get("ignored", False),
-                "first_seen": r.get("range_first"),
-                "last_seen": r.get("range_last"),
+                "first_seen": serialize_timestamp(r.get("range_first")),
+                "last_seen": serialize_timestamp(r.get("range_last")),
                 "total_sightings": r.get("range_sightings", 0),
             })
 
@@ -1476,6 +1490,8 @@ class WebServer:
 
     async def _auto_export_status(self) -> dict:
         files = archive.list_files()
+        for item in files:
+            item["modified"] = serialize_timestamp(item.get("modified"))
         last_result = None
         raw = await db.get_raw_setting("auto_export_last_result")
         if raw:
@@ -1483,11 +1499,14 @@ class WebServer:
                 last_result = json.loads(raw)
             except ValueError:
                 pass
+        if last_result and last_result.get("finished"):
+            last_result["finished"] = serialize_timestamp(last_result["finished"])
+        last_run = await db.get_raw_setting("auto_export_last_run")
         return {
             "enabled": (await db.get_raw_setting("auto_export_enabled", "0")) == "1",
             "days": int(await db.get_raw_setting("auto_export_days", "14")),
             "directory": str(archive.EXPORT_DIR),
-            "last_run": await db.get_raw_setting("auto_export_last_run"),
+            "last_run": serialize_timestamp(last_run),
             "last_result": last_result,
             "running": archive.is_running(),
             "files": files,
@@ -1545,6 +1564,8 @@ class WebServer:
         limit = int(request.query.get("limit", "200"))
         limit = max(1, min(limit, 1000))
         events = await db.get_rf_log(limit=limit)
+        for event in events:
+            event["timestamp"] = serialize_utc_timestamp(event.get("timestamp"))
         return web.json_response(events)
 
     async def api_radar(self, request: web.Request) -> web.Response:
@@ -1764,7 +1785,9 @@ class WebServer:
 
     async def api_stats_overview(self, request: web.Request) -> web.Response:
         """Graph data for the statistics section (cached for a few minutes)."""
-        return web.json_response(await db.get_stats_overview(stale_ok=True))
+        stats = dict(await db.get_stats_overview(stale_ok=True))
+        stats["generated"] = serialize_timestamp(stats.get("generated"))
+        return web.json_response(stats)
 
     async def api_live_stats(self, request: web.Request) -> web.Response:
         """Stats for the "nearby now" live view."""
@@ -2032,7 +2055,7 @@ class WebServer:
                     "id": k["id"],
                     "label": k["label"],
                     "irk_masked": k["irk_hex"][:4] + "..." + k["irk_hex"][-4:],
-                    "created_at": k["created_at"],
+                    "created_at": serialize_utc_timestamp(k["created_at"]),
                 }
                 for k in keys
             ]

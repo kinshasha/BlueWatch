@@ -26,6 +26,7 @@ from . import archive
 from .web import WebServer
 from .webapp.server import _device_to_json
 from .notifications import NotificationManager
+from .timeutil import serialize_timestamp
 
 def _sd_notify(message: str) -> None:
     """Send a message to systemd over the $NOTIFY_SOCKET datagram socket
@@ -595,8 +596,8 @@ class BlueWatchDaemon:
                     "friendly_name": d.friendly_name,
                     "device_type": device_type,
                     "ignored": d.ignored,
-                    "first_seen": (d.first_seen.isoformat()) if d.first_seen else None,
-                    "last_seen": (d.last_seen.isoformat()) if d.last_seen else None,
+                    "first_seen": serialize_timestamp(d.first_seen),
+                    "last_seen": serialize_timestamp(d.last_seen),
                     "total_sightings": d.total_sightings,
                 })
 
@@ -643,7 +644,7 @@ class BlueWatchDaemon:
                     "status": "ok",
                     "sightings": [
                         {
-                            "timestamp": s.timestamp.isoformat(),
+                            "timestamp": serialize_timestamp(s.timestamp),
                             "rssi": s.rssi,
                         }
                         for s in sightings
